@@ -7,9 +7,9 @@ from tensorflow.keras.optimizers import Adam
 
 
 class CartpoleAgent:
-    def __init__(self, render=False, episodes=100, frames=10000, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
+    def __init__(self, render=False, episodes=100, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
                  epsilon_decay=2*1e-4, alpha=0.618, memory=100000, prod=False, model_name="", neurons=16,
-                 batch_size=32, lr=0.01):
+                 batch_size=64, lr=0.01, activation="tanh"):
         """
         Initialise the agent with user input.
 
@@ -24,25 +24,27 @@ class CartpoleAgent:
         :param memory:
         :param prod:
         :param model_name:
-        :param architecture:
+        :param neurons:
         :param batch_size:
         :param lr:
+        :param activation:
         """
-        self.render             = render
-        self.env                = gym.make('CartPole-v0')
-        self.episodes           = episodes
-        self.frames             = frames
-        self.gamma              = gamma
-        self.epsilon            = epsilon
-        self.epsilon_min        = epsilon_min
-        self.epsilon_decay      = epsilon_decay
-        self.alpha              = alpha
-        self.memory             = deque(maxlen=memory)
-        self.prod               = prod
-        self.batch_size         = batch_size
-        self.lr                 = lr
-        self.neurons            = neurons
-        self.model              = self.build_model() #load_model(model_name) if prod else
+        self.render = render
+        self.env = gym.make('CartPole-v0')
+        self.episodes = episodes
+        self.frames = frames
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
+        self.alpha = alpha
+        self.memory = deque(maxlen=memory)
+        self.prod = prod
+        self.batch_size = batch_size
+        self.lr = lr
+        self.neurons = neurons
+        self.model = self.build_model()  # load_model(model_name) if prod else
+        self.activation = activation
 
     def reset(self, epsilon=1.0, memory=100000):
         """
@@ -53,9 +55,9 @@ class CartpoleAgent:
         :return:
         """
         self.env = self.env.reset()
-        self.epsilon            = epsilon
-        self.memory             = deque(maxlen=memory)
-        self.model              = self.model()
+        self.epsilon = epsilon
+        self.memory = deque(maxlen=memory)
+        self.model = self.build_model()
 
     def build_model(self):
         """
@@ -64,8 +66,8 @@ class CartpoleAgent:
         :return: model
         """
         x = Input(shape=(1, 4))
-        hidden = Dense(units=24, activation="tanh")(x)
-        hidden = Dense(units=24*2, activation="tanh")(hidden)
+        hidden = Dense(units=self.neurons, activation="tanh")(x)
+        hidden = Dense(units=self.neurons / 2, activation="tanh")(hidden)
         # hidden = Dense(units=self.neurons, activation="tanh")(hidden)
         y = Dense(2, activation="linear")(hidden)
 
@@ -80,7 +82,7 @@ class CartpoleAgent:
         Function that decays the threshold that determines when the agent takes random decisions in training.
         """
         if self.epsilon > self.epsilon_min:
-            self.epsilon -= self.epsilon_decay
+            self.epsilon *= self.epsilon_decay
 
     def choose_action(self, state):
         """
@@ -145,6 +147,8 @@ class CartpoleAgent:
 
         :return:
         """
+        log = open('tmp.csv', 'w')
+        log.write('Episode, Reward, Epsilon')
         scores = deque(maxlen=100)
 
         for e in range(self.episodes):
@@ -175,6 +179,8 @@ class CartpoleAgent:
             # Record the track run
             scores.append(i)
             mean_score = np.mean(scores)
+            # Log results
+            log.write("\n" + str(e) + ',' + str(i) + ',' + str(self.epsilon))
 
             if e % 100 == 0 and not self.prod:
                 print('Episode {} - Survival time over last 100 episodes was {} frames. -- {}'.
@@ -183,8 +189,9 @@ class CartpoleAgent:
             if e % self.batch_size:
                 self.learn()
 
+        log.close()
+
 
 if __name__ == '__main__':
-    agent = CartpoleAgent(episodes=10000, frames=10000)
-    print("hello")
+    agent = CartpoleAgent(episodes=6000, epsilon_decay=0.999)
     agent.play()
