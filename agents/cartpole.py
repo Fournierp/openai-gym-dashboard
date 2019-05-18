@@ -191,9 +191,10 @@ class CartpoleAgent:
 
         log.close()
 
-    def baseline(self):
+    def demo_run(self, render):
         """
 
+        :param render:
         :return:
         """
         # Restart the cartpole
@@ -203,7 +204,7 @@ class CartpoleAgent:
         # For each frame in the game loop
         for f in range(self.frames):
             # Render
-            if self.render:
+            if render:
                 self.env.render()
 
             # Select an action
@@ -218,16 +219,12 @@ class CartpoleAgent:
             if done:
                 break
 
-        print('Baseline - Survival time was {} frames. -- {}'.format(i, self.epsilon))
-
-    def render(self):
-        """
-
-        :return:
-        """
+        print('Demo - Survival time was {} frames. -- {}'.format(i, self.epsilon))
+        self.env.reset()
 
 
 if __name__ == '__main__':
     agent = CartpoleAgent(episodes=6000, epsilon_decay=0.999)
-    agent.baseline()
+    agent.demo_run(render=False)
     agent.play()
+    agent.demo_run(render=True)
