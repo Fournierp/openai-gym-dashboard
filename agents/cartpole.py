@@ -191,7 +191,43 @@ class CartpoleAgent:
 
         log.close()
 
+    def baseline(self):
+        """
+
+        :return:
+        """
+        # Restart the cartpole
+        state = self.env.reset()
+        i = 0
+
+        # For each frame in the game loop
+        for f in range(self.frames):
+            # Render
+            if self.render:
+                self.env.render()
+
+            # Select an action
+            action = self.choose_action(state)
+            # Simulate a frame
+            next_state, reward, done, _ = self.env.step(action)
+            next_state = np.reshape(next_state, [1, 4])
+            state = next_state
+            i += 1
+
+            # Stop when game is over
+            if done:
+                break
+
+        print('Baseline - Survival time was {} frames. -- {}'.format(i, self.epsilon))
+
+    def render(self):
+        """
+
+        :return:
+        """
+
 
 if __name__ == '__main__':
     agent = CartpoleAgent(episodes=6000, epsilon_decay=0.999)
+    agent.baseline()
     agent.play()
