@@ -8,8 +8,8 @@ from tensorflow.keras.optimizers import Adam
 
 class CartpoleAgent:
     def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.99, memory=100000, prod=False, model_name="", neurons=[32, 16], batch_size=64, lr=0.01,
-                 activation="tanh", log_file=""):
+                 epsilon_decay=0.99, memory=100000, prod=False, neurons=[32, 16], batch_size=64, lr=0.01,
+                 activation="tanh", log_file="", model_name=""):
         """
         Initialise the agent with user input.
 
@@ -43,10 +43,13 @@ class CartpoleAgent:
         self.lr = lr
         self.neurons = neurons
         self.activation = activation
-        self.model = self.build_model()  # load_model(model_name) if prod else
+        self.model = self.build_model() if model_name == '' else load_model(model_name)
         self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
                         str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
                         str(neurons) + '_activation_' + str(activation) + '.csv' if log_file == '' else log_file
+        self.model_file = 'models/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
+                          '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
+                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) if model_name == '' else model_name
 
     def reset(self, epsilon=1.0, memory=100000):
         """
@@ -69,8 +72,8 @@ class CartpoleAgent:
         """
         x = Input(shape=(1, 4))
         hidden = Dense(units=self.neurons[0], activation=self.activation)(x)
-        for layer in self.neurons:
-            hidden = Dense(units=layer / 2, activation=self.activation)(hidden)
+        for layer in self.neurons[1:]:
+            hidden = Dense(units=layer, activation=self.activation)(hidden)
         y = Dense(2, activation="linear")(hidden)
 
         model = Model(inputs=x, outputs=y)
@@ -231,11 +234,16 @@ class CartpoleAgent:
 
         :return:
         """
-        pass
+        # Serialize model to JSON
+        model_json = self.model.to_json()
+        with open(self.model_file + ".json", "w") as json_file:
+            json_file.write(model_json)
+        # Serialize weights to HDF5
+        self.model.save_weights(self.model_file + ".h5")
 
 
 if __name__ == '__main__':
-    agent = CartpoleAgent(episodes=6000, epsilon_decay=0.999)
+    agent = CartpoleAgent(episodes=1000, epsilon_decay=0.999)
     agent.demo_run(render=False)
     agent.play()
     agent.demo_run(render=True)
