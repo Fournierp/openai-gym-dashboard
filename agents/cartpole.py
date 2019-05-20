@@ -7,9 +7,9 @@ from tensorflow.keras.optimizers import Adam
 
 
 class CartpoleAgent:
-    def __init__(self, render=False, episodes=100, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=2*1e-4, alpha=0.618, memory=100000, prod=False, model_name="", neurons=16,
-                 batch_size=64, lr=0.01, activation="tanh"):
+    def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
+                 epsilon_decay=0.99, memory=100000, prod=False, model_name="", neurons=[32, 16], batch_size=64, lr=0.01,
+                 activation="tanh", log_file=""):
         """
         Initialise the agent with user input.
 
@@ -20,14 +20,14 @@ class CartpoleAgent:
         :param epsilon:
         :param epsilon_min:
         :param epsilon_decay:
-        :param alpha:
         :param memory:
         :param prod:
         :param model_name:
         :param neurons:
         :param batch_size:
-        :param lr:
         :param activation:
+        :param lr:
+        :param log_file:
         """
         self.render = render
         self.env = gym.make('CartPole-v0')
@@ -37,14 +37,16 @@ class CartpoleAgent:
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
-        self.alpha = alpha
         self.memory = deque(maxlen=memory)
         self.prod = prod
         self.batch_size = batch_size
         self.lr = lr
         self.neurons = neurons
-        self.model = self.build_model()  # load_model(model_name) if prod else
         self.activation = activation
+        self.model = self.build_model()  # load_model(model_name) if prod else
+        self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
+                        str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
+                        str(neurons) + '_activation_' + str(activation) + '.csv' if log_file == '' else log_file
 
     def reset(self, epsilon=1.0, memory=100000):
         """
@@ -66,9 +68,9 @@ class CartpoleAgent:
         :return: model
         """
         x = Input(shape=(1, 4))
-        hidden = Dense(units=self.neurons, activation="tanh")(x)
-        hidden = Dense(units=self.neurons / 2, activation="tanh")(hidden)
-        # hidden = Dense(units=self.neurons, activation="tanh")(hidden)
+        hidden = Dense(units=self.neurons[0], activation=self.activation)(x)
+        for layer in self.neurons:
+            hidden = Dense(units=layer / 2, activation=self.activation)(hidden)
         y = Dense(2, activation="linear")(hidden)
 
         model = Model(inputs=x, outputs=y)
@@ -147,7 +149,7 @@ class CartpoleAgent:
 
         :return:
         """
-        log = open('tmp.csv', 'w')
+        log = open(self.log_file, 'w')
         log.write('Episode, Reward, Epsilon')
         scores = deque(maxlen=100)
 
@@ -185,6 +187,8 @@ class CartpoleAgent:
             if e % 100 == 0 and not self.prod:
                 print('Episode {} - Survival time over last 100 episodes was {} frames. -- {}'.
                       format(e, mean_score, self.epsilon))
+                if mean_score > 195.0:
+                    print('Game is solved at Episode {}'.format(mean_score))
 
             if e % self.batch_size:
                 self.learn()
@@ -222,9 +226,17 @@ class CartpoleAgent:
         print('Demo - Survival time was {} frames. -- {}'.format(i, self.epsilon))
         self.env.reset()
 
+    def save_model(self):
+        """
+
+        :return:
+        """
+        pass
+
 
 if __name__ == '__main__':
     agent = CartpoleAgent(episodes=6000, epsilon_decay=0.999)
     agent.demo_run(render=False)
     agent.play()
     agent.demo_run(render=True)
+    agent.save_model()
