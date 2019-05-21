@@ -10,7 +10,7 @@ from tensorflow.keras.optimizers import Adam
 
 class CartpoleAgent:
     def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.99, memory=100000, prod=False, neurons=[32, 16], batch_size=64, lr=0.01,
+                 epsilon_decay=0.99, memory=100000, prod=False, neurons=[16, 8], batch_size=64, lr=0.01,
                  activation="tanh", log_file="", model_name="", plot_file=""):
         """
         Initialise the agent with user input.
@@ -130,6 +130,8 @@ class CartpoleAgent:
     def learn(self):
         """
         Function that trains the model given a batch of data.
+
+        :return: Mean Squared Error of the batch.
         """
         x, y = [], []
         minibatch = self.generate_batch()
@@ -146,17 +148,18 @@ class CartpoleAgent:
             y.append(y_target[0])
 
         # Give the model the data
-        self.model.fit(np.array(x), np.array(y), batch_size=len(x), verbose=0)
-
+        hist = self.model.fit(np.array(x), np.array(y), verbose=0)
         # Reduce the randomness of the decision making
         self.decay()
+
+        return hist.history["loss"][0]
 
     def play(self):
         """
         Function that simulates the game.
         """
         log = open(self.log_file, 'w')
-        log.write('Episode,Reward,Epsilon')
+        log.write('Batch,Reward,Loss')
         scores = deque(maxlen=100)
 
         for e in range(self.episodes):
@@ -187,22 +190,23 @@ class CartpoleAgent:
             # Record the track run
             scores.append(i)
             mean_score = np.mean(scores)
-            # Log results
-            log.write("\n" + str(e) + ',' + str(i) + ',' + str(self.epsilon))
 
-            if e % 100 == 0 and not self.prod:
-                print('Episode {} - Survival time over last 100 episodes was {} frames. -- {}'.
-                      format(e, mean_score, self.epsilon))
+            if not (e+1) % self.batch_size and not self.prod:
+                # Feed a batch into the DQN
+                loss = self.learn()
+                # Log results to console
+                print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
+                      format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
                 if mean_score > 195.0:
-                    print('Game is solved at Episode {}'.format(mean_score))
-
-            if e % self.batch_size:
-                self.learn()
+                    print('Game is solved at Episode {}'.format(e))
+                # Log results to files
+                log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
 
         log.close()
 
     def demo_run(self, render):
         """
+        Run the game with the Agent making the decisions and not learning.
 
         :param render: Boolean to display the game or not.
         """
@@ -228,7 +232,7 @@ class CartpoleAgent:
             if done:
                 break
 
-        print('Demo - Survival time was {} frames. -- {}'.format(i, self.epsilon))
+        print('Demo - Survival time was {} frames.'.format(i))
         self.env.reset()
 
     def save_model(self):
@@ -242,21 +246,20 @@ class CartpoleAgent:
         # Serialize weights to HDF5
         self.model.save_weights(self.model_file + ".h5")
 
-
     def plot_model(self):
         """
         Plot the reward per episode.
         """
         df = pd.read_csv(self.log_file)
         fig, ax = plt.subplots()
-        ax.plot(df.Episode, df.Reward)
-        ax.set(xlabel='Episodes', ylabel='Reward', title=self.log_file[:-4])
+        ax.plot(df.Batch, df.Reward)
+        ax.set(xlabel='Batch', ylabel='Reward', title=self.log_file[:-4])
         ax.grid()
         fig.savefig(self.plot_file)
 
 
 if __name__ == '__main__':
-    agent = CartpoleAgent(episodes=1000, epsilon_decay=0.999)
+    agent = CartpoleAgent(episodes=100000, epsilon_decay=0.99)
     agent.demo_run(render=False)
     agent.play()
     agent.demo_run(render=True)
