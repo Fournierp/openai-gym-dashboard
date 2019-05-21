@@ -13,21 +13,21 @@ class CartpoleAgent:
         """
         Initialise the agent with user input.
 
-        :param render:
-        :param episodes:
-        :param frames:
-        :param gamma:
-        :param epsilon:
-        :param epsilon_min:
-        :param epsilon_decay:
-        :param memory:
-        :param prod:
-        :param model_name:
-        :param neurons:
-        :param batch_size:
-        :param activation:
-        :param lr:
-        :param log_file:
+        :param render: Boolean to render the game or not.
+        :param episodes: Number of games used by the agent to learn.
+        :param frames: Number of frames per game.
+        :param gamma: Discount factor for the reward.
+        :param epsilon: Value of randomness of the epsilon-greedy decision making.
+        :param epsilon_min: Minimum epsilon value.
+        :param epsilon_decay: Rate of decay of epsilon.
+        :param memory: Number of frames the agent remembers.
+        :param prod: Boolean for training or testing mode.
+        :param model_name: Name the model will be saved to.
+        :param neurons: Architecture of the DQN.
+        :param batch_size: Number of frames fed to the DQN at once.
+        :param activation: Activation function.
+        :param lr: Learning Rate
+        :param log_file: Name of the file the logs will be saved.
         """
         self.render = render
         self.env = gym.make('CartPole-v0')
@@ -68,7 +68,7 @@ class CartpoleAgent:
         """
         Function that creates the Q-Network.
 
-        :return: model
+        :return: DQN model
         """
         x = Input(shape=(1, 4))
         hidden = Dense(units=self.neurons[0], activation=self.activation)(x)
@@ -94,7 +94,7 @@ class CartpoleAgent:
         Function that determines what the agent does. In training it will randomly select a random decision to
         accelerate learning through exploration.
 
-        :param state:
+        :param state: Environment setting (position of the pole)
         :return: optimal or random decision
         """
         # If the agent is in training and with a random chance.
@@ -111,7 +111,7 @@ class CartpoleAgent:
         """
         Function that gets the last (batch_size) elements in memory for training.
 
-        :return: shuffle batch
+        :return: Shuffled batch
         """
         batch = []
         length = len(self.memory)
@@ -123,8 +123,6 @@ class CartpoleAgent:
     def learn(self):
         """
         Function that trains the model given a batch of data.
-
-        :return:
         """
         x, y = [], []
         minibatch = self.generate_batch()
@@ -148,9 +146,7 @@ class CartpoleAgent:
 
     def play(self):
         """
-        Function that simulates the game
-
-        :return:
+        Function that simulates the game.
         """
         log = open(self.log_file, 'w')
         log.write('Episode, Reward, Epsilon')
@@ -201,8 +197,7 @@ class CartpoleAgent:
     def demo_run(self, render):
         """
 
-        :param render:
-        :return:
+        :param render: Boolean to display the game or not.
         """
         # Restart the cartpole
         state = self.env.reset()
@@ -231,8 +226,7 @@ class CartpoleAgent:
 
     def save_model(self):
         """
-
-        :return:
+        Function to save the model.
         """
         # Serialize model to JSON
         model_json = self.model.to_json()
