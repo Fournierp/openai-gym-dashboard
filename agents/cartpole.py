@@ -1,5 +1,7 @@
 import gym
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from collections import deque
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Dense, Dropout, Input, LSTM
@@ -9,7 +11,7 @@ from tensorflow.keras.optimizers import Adam
 class CartpoleAgent:
     def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
                  epsilon_decay=0.99, memory=100000, prod=False, neurons=[32, 16], batch_size=64, lr=0.01,
-                 activation="tanh", log_file="", model_name=""):
+                 activation="tanh", log_file="", model_name="", plot_file=""):
         """
         Initialise the agent with user input.
 
@@ -22,12 +24,13 @@ class CartpoleAgent:
         :param epsilon_decay: Rate of decay of epsilon.
         :param memory: Number of frames the agent remembers.
         :param prod: Boolean for training or testing mode.
-        :param model_name: Name the model will be saved to.
         :param neurons: Architecture of the DQN.
         :param batch_size: Number of frames fed to the DQN at once.
         :param activation: Activation function.
         :param lr: Learning Rate
         :param log_file: Name of the file the logs will be saved.
+        :param model_name: Name the model will be saved to.
+        :param plot_file: Name of the file the plot of the reward is saved to.
         """
         self.render = render
         self.env = gym.make('CartPole-v0')
@@ -50,6 +53,10 @@ class CartpoleAgent:
         self.model_file = 'models/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
                           '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
                           + '_neurons_' + str(neurons) + '_activation_' + str(activation) if model_name == '' else model_name
+        self.plot_file = 'plots/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
+                         '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
+                         + '_neurons_' + str(neurons) + '_activation_' + str(activation) + '.png' \
+            if plot_file == '' else plot_file
 
     def reset(self, epsilon=1.0, memory=100000):
         """
@@ -149,7 +156,7 @@ class CartpoleAgent:
         Function that simulates the game.
         """
         log = open(self.log_file, 'w')
-        log.write('Episode, Reward, Epsilon')
+        log.write('Episode,Reward,Epsilon')
         scores = deque(maxlen=100)
 
         for e in range(self.episodes):
@@ -236,9 +243,22 @@ class CartpoleAgent:
         self.model.save_weights(self.model_file + ".h5")
 
 
+    def plot_model(self):
+        """
+        Plot the reward per episode.
+        """
+        df = pd.read_csv(self.log_file)
+        fig, ax = plt.subplots()
+        ax.plot(df.Episode, df.Reward)
+        ax.set(xlabel='Episodes', ylabel='Reward', title=self.log_file[:-4])
+        ax.grid()
+        fig.savefig(self.plot_file)
+
+
 if __name__ == '__main__':
     agent = CartpoleAgent(episodes=1000, epsilon_decay=0.999)
     agent.demo_run(render=False)
     agent.play()
     agent.demo_run(render=True)
     agent.save_model()
+    agent.plot_model()
