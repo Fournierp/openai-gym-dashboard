@@ -1,20 +1,24 @@
 import dash
+from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
-import pandas as pd
 import plotly.graph_objs as go
-from dash.dependencies import Input, Output, State
 from plotly import tools
 
-LOGFILE = 'examples/run_log.csv'
+import pandas as pd
+
+LOGFILE = ''
 
 app = dash.Dash(__name__)
 server = app.server
 
-demo_mode = True
 
 def div_graph(name):
-    """Generates an html Div containing graph and control options for smoothing and display, given the name"""
+    """
+    Generates an html Div containing graph and control options for smoothing and display, given the name
+    :param name:
+    :return:
+    """
     return html.Div([
         html.Div(
             id=f'div-{name}-graph',
@@ -74,16 +78,17 @@ def div_graph(name):
     )
 
 
+# Content of the page
 app.layout = html.Div([
     # Banner display
     html.Div([
         html.H2(
-            'Live Model Training Viewer',
+            'OpenAI Gym Dashboard',
             id='title'
         ),
-        html.Img(
-            src="https://s3-us-west-1.amazonaws.com/plotly-tutorials/logo/new-branding/dash-logo-by-plotly-stripe-inverted.png"
-        )
+        # html.Img(
+        #     src="https://s3-us-west-1.amazonaws.com/plotly-tutorials/logo/new-branding/dash-logo-by-plotly-stripe-inverted.png"
+        # )
     ],
         className="banner"
     ),
@@ -119,42 +124,41 @@ app.layout = html.Div([
             n_intervals=0
         ),
 
-        # Hidden Div Storing JSON-serialized dataframe of run log
+        # Hidden Div Storing JSON-serialized DataFrame of run log
         html.Div(id='run-log-storage', style={'display': 'none'}),
 
         # The html divs storing the graphs and display parameters
-        div_graph('accuracy'),
-        div_graph('cross-entropy'),
-
-        # Explanation for the demo version of the app
+        div_graph('reward'),
+        div_graph('loss'),
     ],
         className="container"
     )
 ])
 
 
-def update_graph(graph_id,
-                 graph_title,
-                 y_train_index,
-                 y_val_index,
-                 run_log_json,
-                 display_mode,
-                 checklist_smoothing_options,
-                 slider_smoothing,
-                 yaxis_title):
+def update_graph(graph_id, graph_title, y_train_index, y_val_index, run_log_json, display_mode,
+                 checklist_smoothing_options, slider_smoothing, yaxis_title):
     """
+    Function that updates the Graphs with new data from the logs
     :param graph_id: ID for Dash callbacks
-    :param graph_title: Displayed on layout
+    :param graph_title: Title displayed on layout
     :param y_train_index: name of column index for y train we want to retrieve
     :param y_val_index: name of column index for y val we want to retrieve
     :param run_log_json: the json file containing the data
     :param display_mode: 'separate' or 'overlap'
     :param checklist_smoothing_options: 'train' or 'val'
     :param slider_smoothing: value between 0 and 1, at interval of 0.05
+    :param yaxis_title:
     :return: dcc Graph object containing the updated figures
     """
 
     def smooth(scalars, weight=0.6):
+        """
+        Function to smooth the curve to display.
+        :param scalars: Values of the graph
+        :param weight: How much to smooth the curve by
+        :return: smoothed values
+        """
         last = scalars[0]
         smoothed = list()
         for point in scalars:
@@ -163,16 +167,18 @@ def update_graph(graph_id,
             last = smoothed_val
         return smoothed
 
-    if run_log_json:  # exists
+    if run_log_json:
+        # Create graph
         layout = go.Layout(
             title=graph_title,
             margin=go.Margin(l=50, r=50, b=50, t=50),
             yaxis={'title': yaxis_title}
         )
 
+        # Get the data from the json file stored in the page
         run_log_df = pd.read_json(run_log_json, orient='split')
-
-        step = run_log_df['step']
+        # Get the values for the curve
+        step = run_log_df['Batch']
         y_train = run_log_df[y_train_index]
         y_val = run_log_df[y_val_index]
 
@@ -183,6 +189,7 @@ def update_graph(graph_id,
         if 'val' in checklist_smoothing_options:
             y_val = smooth(y_val, weight=slider_smoothing)
 
+        # Draw the curves
         trace_train = go.Scatter(
             x=step,
             y=y_train,
@@ -208,7 +215,7 @@ def update_graph(graph_id,
 
             figure['layout'].update(title=layout.title,
                                     margin=layout.margin,
-                                    scene={'domain': {'x': (0., 0.5), 'y': (0.5,1)}})
+                                    scene={'domain': {'x': (0., 0.5), 'y': (0.5, 1)}})
 
         elif display_mode == 'separate_horizontal':
             figure = tools.make_subplots(rows=1,
@@ -239,6 +246,11 @@ def update_graph(graph_id,
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
+    """
+    Select the interval time between updates for the graph.
+    :param interval_rate: user selection
+    :return: interval rate
+    """
     if interval_rate == 'fast':
         return 500
 
@@ -253,26 +265,35 @@ def update_interval_log_update(interval_rate):
         return 24 * 60 * 60 * 1000
 
 
-if not demo_mode:
-    @app.callback(Output('run-log-storage', 'children'),
-                  [Input('interval-log-update', 'n_intervals')])
-    def get_run_log(_):
-        names = ['step', 'train accuracy', 'val accuracy', 'train cross entropy', 'val cross entropy']
+@app.callback(Output('run-log-storage', 'children'),
+              [Input('interval-log-update', 'n_intervals')])
+def get_run_log(_):
+    """
+    Function that gets the json file
+    :param _:
+    :return: data in json format
+    """
+    names = ['Batch', 'Reward', 'Loss']
 
-        try:
-            run_log_df = pd.read_csv(LOGFILE, names=names)
-            json = run_log_df.to_json(orient='split')
-        except FileNotFoundError as error:
-            print(error)
-            print("Please verify if the csv file generated by your model is placed in the correct directory.")
-            return None
+    try:
+        run_log_df = pd.read_csv(LOGFILE, names=names)
+        json = run_log_df.to_json(orient='split')
+    except FileNotFoundError as error:
+        print(error)
+        print("Please verify if the csv file generated by your model is placed in the correct directory.")
+        return None
 
-        return json
+    return json
 
 
 @app.callback(Output('div-step-display', 'children'),
               [Input('run-log-storage', 'children')])
 def update_div_step_display(run_log_json):
+    """
+    Function that gets the last element from the JSON data.
+    :param run_log_json: JSON log data
+    :return: last row of the JSON log data
+    """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
         return html.H6(f"Step: {run_log_df['step'].iloc[-1]}", style={'margin-top': '3px'})
