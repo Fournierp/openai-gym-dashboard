@@ -7,7 +7,7 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 
-LOGFILE = ''
+LOGFILE = 'agents/logs/env_CartPole-v0_gamma_0.97_episodes_50000_epsilon_decay_0.999_batch_size_64_lr_0.01_neurons_[16, 4]_activation_tanh.csv'
 
 app = dash.Dash(__name__)
 server = app.server
