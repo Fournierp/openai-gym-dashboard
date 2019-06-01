@@ -1,97 +1,17 @@
+import json
+from sklearn.model_selection import ParameterGrid
 from agents.cartpole import CartpoleAgent
 
 if __name__ == '__main__':
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[8, 8, 8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[16, 8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[16, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.99, neurons=[8, 8, 8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.97, neurons=[16, 8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.97, neurons=[8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.999, gamma=0.97, neurons=[16, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[8, 8, 8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[16, 8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[16, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.99, neurons=[8, 8, 8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.97, neurons=[16, 8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.97, neurons=[8, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.97, neurons=[16, 4])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
-
-    agent = CartpoleAgent(episodes=10000, epsilon_decay=0.995, gamma=0.97, neurons=[8])
-    agent.play()
-    agent.save_model()
-    agent.plot_model()
+    # Load JSON
+    with open('hyperparameters.json') as f:
+        data = json.load(f)
+        # Make a Grid Search
+        grid = ParameterGrid(data)
+        for i, params in enumerate(grid):
+            print(params)
+            agent = CartpoleAgent(episodes=params["episodes"], activation=params['activation'],
+                                  batch_size=params['batch_size'], epsilon_decay=params['epsilon_decay'],
+                                  gamma=params['gamma'], lr=params["lr"], neurons=params["neurons"])
+            agent.play()
+            agent.save_model()
