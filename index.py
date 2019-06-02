@@ -3,11 +3,14 @@ from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
-from plotly import tools
 
 import pandas as pd
+import numpy as np
 
-LOGFILE = ''
+from os import listdir
+
+LOGFILE = 'agents/logs/env_CartPole-v0_gamma_0.97_episodes_50000_epsilon_decay_0.995_batch_size_64_lr_0.01_neurons_' \
+          '[8]_activation_tanh.csv'
 
 app = dash.Dash(__name__)
 server = app.server
@@ -15,9 +18,9 @@ server = app.server
 
 def div_graph(name):
     """
-    Generates an html Div containing graph and control options for smoothing and display, given the name
-    :param name:
-    :return:
+    Generates unique html Div containing graph and control options for smoothing, given the name.
+    :param name: name of the div
+    :return: html Div
     """
     return html.Div([
         html.Div(
@@ -29,12 +32,12 @@ def div_graph(name):
             html.Div([
                 html.P("Smoothing:", style={'font-weight': 'bold', 'margin-bottom': '0px'}),
 
-                dcc.Checklist(
+                dcc.RadioItems(
                     options=[
-                        {'label': ' Training', 'value': 'train'},
-                        {'label': ' Validation', 'value': 'val'}
+                        {'label': ' Yes', 'value': 'yes'},
+                        {'label': ' No', 'value': 'no'}
                     ],
-                    values=[],
+                    value='no',
                     id=f'checklist-smoothing-options-{name}'
                 )
             ],
@@ -55,27 +58,28 @@ def div_graph(name):
                 style={'margin-bottom': '40px'}
             ),
 
-            html.Div([
-                html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '0px'}),
+            html.Div(id=f'div-current-{name}-value'),
 
-                dcc.RadioItems(
-                    options=[
-                        {'label': ' Overlapping', 'value': 'overlap'},
-                        {'label': ' Separate (Vertical)', 'value': 'separate_vertical'},
-                        {'label': ' Separate (Horizontal)', 'value': 'separate_horizontal'}
-                    ],
-                    value='overlap',
-                    id=f'radio-display-mode-{name}'
-                ),
-
-                html.Div(id=f'div-current-{name}-value')
-            ]),
         ],
             className="two columns"
         ),
     ],
         className="row"
     )
+
+
+def get_log_files():
+    """
+    Function that fetches all the files in the logs directory to display in the dropdown.
+    :return: list of file paths
+    """
+    options = []
+
+    for log in listdir('agents/logs/'):
+        new_log = {'label': log, 'value': '/'.join(('agents/logs', log))}
+        options.append(new_log)
+
+    return options
 
 
 # Content of the page
@@ -96,6 +100,15 @@ app.layout = html.Div([
     # Body
     html.Div([
         html.Div([
+            dcc.Dropdown(
+                id='dropdown-log-file',
+                placeholder="Select log file",
+                options=get_log_files(),
+                clearable=True,
+                searchable=True,
+                multi=False,
+                ),
+
             dcc.Dropdown(
                 id='dropdown-interval-control',
                 options=[
@@ -136,19 +149,15 @@ app.layout = html.Div([
 ])
 
 
-def update_graph(graph_id, graph_title, y_train_index, y_val_index, run_log_json, display_mode,
-                 checklist_smoothing_options, slider_smoothing, yaxis_title):
+def update_graph(graph_id, graph_title, col, run_log_json, checklist_smoothing_options, slider_smoothing):
     """
     Function that updates the Graphs with new data from the logs
     :param graph_id: ID for Dash callbacks
     :param graph_title: Title displayed on layout
-    :param y_train_index: name of column index for y train we want to retrieve
-    :param y_val_index: name of column index for y val we want to retrieve
+    :param col: name of column index for the data we want to retrieve
     :param run_log_json: the json file containing the data
-    :param display_mode: 'separate' or 'overlap'
-    :param checklist_smoothing_options: 'train' or 'val'
+    :param checklist_smoothing_options: 'yes' or 'no'
     :param slider_smoothing: value between 0 and 1, at interval of 0.05
-    :param yaxis_title:
     :return: dcc Graph object containing the updated figures
     """
 
@@ -171,72 +180,32 @@ def update_graph(graph_id, graph_title, y_train_index, y_val_index, run_log_json
         # Create graph
         layout = go.Layout(
             title=graph_title,
-            margin=go.Margin(l=50, r=50, b=50, t=50),
-            yaxis={'title': yaxis_title}
+            margin=go.layout.Margin(l=50, r=50, b=50, t=50),
+            yaxis={'title': graph_title}
         )
 
         # Get the data from the json file stored in the page
         run_log_df = pd.read_json(run_log_json, orient='split')
         # Get the values for the curve
         step = run_log_df['Batch']
-        y_train = run_log_df[y_train_index]
-        y_val = run_log_df[y_val_index]
+        values = run_log_df[col]
 
         # Apply Smoothing if needed
-        if 'train' in checklist_smoothing_options:
-            y_train = smooth(y_train, weight=slider_smoothing)
-
-        if 'val' in checklist_smoothing_options:
-            y_val = smooth(y_val, weight=slider_smoothing)
+        if 'yes' in checklist_smoothing_options:
+            values = smooth(values, weight=slider_smoothing)
 
         # Draw the curves
-        trace_train = go.Scatter(
+        trace_values = go.Scatter(
             x=step,
-            y=y_train,
+            y=values,
             mode='lines',
             name='Training'
         )
 
-        trace_val = go.Scatter(
-            x=step,
-            y=y_val,
-            mode='lines',
-            name='Validation'
+        figure = go.Figure(
+            data=[trace_values],
+            layout=layout
         )
-
-        if display_mode == 'separate_vertical':
-            figure = tools.make_subplots(rows=2,
-                                         cols=1,
-                                         print_grid=False,
-                                         shared_yaxes=True)
-
-            figure.append_trace(trace_train, 1, 1)
-            figure.append_trace(trace_val, 2, 1)
-
-            figure['layout'].update(title=layout.title,
-                                    margin=layout.margin,
-                                    scene={'domain': {'x': (0., 0.5), 'y': (0.5, 1)}})
-
-        elif display_mode == 'separate_horizontal':
-            figure = tools.make_subplots(rows=1,
-                                         cols=2,
-                                         shared_yaxes=True,
-                                         print_grid=False)
-
-            figure.append_trace(trace_train, 1, 1)
-            figure.append_trace(trace_val, 1, 2)
-
-            figure['layout'].update(title=layout.title,
-                                    margin=layout.margin)
-
-        elif display_mode == 'overlap':
-            figure = go.Figure(
-                data=[trace_train, trace_val],
-                layout=layout
-            )
-
-        else:
-            figure = None
 
         return dcc.Graph(figure=figure, id=graph_id)
 
@@ -247,7 +216,7 @@ def update_graph(graph_id, graph_title, y_train_index, y_val_index, run_log_json
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
     """
-    Select the interval time between updates for the graph.
+    Callback that changes the interval time between updates for the graph.
     :param interval_rate: user selection
     :return: interval rate
     """
@@ -269,14 +238,13 @@ def update_interval_log_update(interval_rate):
               [Input('interval-log-update', 'n_intervals')])
 def get_run_log(_):
     """
-    Function that gets the json file
-    :param _:
+    Callback that gets the csv file.
+    :param _: holder value to trigger callback
     :return: data in json format
     """
-    names = ['Batch', 'Reward', 'Loss']
-
     try:
-        run_log_df = pd.read_csv(LOGFILE, names=names)
+        run_log_df = pd.read_csv(LOGFILE, header=0,
+                                 dtype={'Batch': np.float64, 'Reward': np.float64, 'Loss': np.float64})
         json = run_log_df.to_json(orient='split')
     except FileNotFoundError as error:
         print(error)
@@ -290,90 +258,80 @@ def get_run_log(_):
               [Input('run-log-storage', 'children')])
 def update_div_step_display(run_log_json):
     """
-    Function that gets the last element from the JSON data.
+    Callback that gets the last Batch number from the JSON data.
     :param run_log_json: JSON log data
     :return: last row of the JSON log data
     """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
-        return html.H6(f"Step: {run_log_df['step'].iloc[-1]}", style={'margin-top': '3px'})
+        return html.H6(f"Step: {run_log_df['Batch'].iloc[-1]}", style={'margin-top': '3px'})
 
 
-@app.callback(Output('div-accuracy-graph', 'children'),
+@app.callback(Output('div-reward-graph', 'children'),
               [Input('run-log-storage', 'children'),
-               Input('radio-display-mode-accuracy', 'value'),
-               Input('checklist-smoothing-options-accuracy', 'values'),
-               Input('slider-smoothing-accuracy', 'value')])
-def update_accuracy_graph(run_log_json,
-                          display_mode,
-                          checklist_smoothing_options,
-                          slider_smoothing):
-    graph = update_graph('accuracy-graph',
-                         'Prediction Accuracy',
-                         'train accuracy',
-                         'val accuracy',
-                         run_log_json,
-                         display_mode,
-                         checklist_smoothing_options,
-                         slider_smoothing,
-                         'Accuracy')
-
-    try:
-        if display_mode in ['separate_horizontal', 'overlap']:
-            graph.figure.layout.yaxis['range'] = [0, 1]
-        else:
-            graph.figure.layout.yaxis1['range'] = [0, 1]
-            graph.figure.layout.yaxis2['range'] = [0, 1]
-
-    except AttributeError:
-        pass
-
+               Input('checklist-smoothing-options-reward', 'value'),
+               Input('slider-smoothing-reward', 'value')])
+def update_reward_graph(run_log_json, checklist_smoothing_options, slider_smoothing):
+    """
+    Callback that updates the reward graph
+    :param run_log_json: JSON object of the data
+    :param checklist_smoothing_options: Boolean to smooth the function
+    :param slider_smoothing: Weight of the smoothing function
+    :return: Graph
+    """
+    graph = update_graph('accuracy-graph', 'Reward', 'Reward', run_log_json,
+                         checklist_smoothing_options, slider_smoothing)
     return [graph]
 
 
-@app.callback(Output('div-cross-entropy-graph', 'children'),
+@app.callback(Output('div-loss-graph', 'children'),
               [Input('run-log-storage', 'children'),
-               Input('radio-display-mode-cross-entropy', 'value'),
-               Input('checklist-smoothing-options-cross-entropy', 'values'),
-               Input('slider-smoothing-cross-entropy', 'value')])
-def update_cross_entropy_graph(run_log_json,
-                               display_mode,
-                               checklist_smoothing_options,
-                               slider_smoothing):
-    graph = update_graph('cross-entropy-graph',
-                         'Cross Entropy Loss',
-                         'train cross entropy',
-                         'val cross entropy',
-                         run_log_json,
-                         display_mode,
-                         checklist_smoothing_options,
-                         slider_smoothing,
-                         'Loss')
+               Input('checklist-smoothing-options-loss', 'value'),
+               Input('slider-smoothing-loss', 'value')])
+def update_loss_graph(run_log_json, checklist_smoothing_options, slider_smoothing):
+    """
+    Callback that updates the loss graph
+    :param run_log_json: JSON object of the data
+    :param checklist_smoothing_options: Boolean to smooth the function
+    :param slider_smoothing: Weight of the smoothing function
+    :return: Graph
+    """
+    graph = update_graph('cross-loss-graph', 'Loss', 'Loss',
+                         run_log_json, checklist_smoothing_options, slider_smoothing)
     return [graph]
 
 
-@app.callback(Output('div-current-accuracy-value', 'children'),
+@app.callback(Output('div-current-reward-value', 'children'),
               [Input('run-log-storage', 'children')])
-def update_div_current_accuracy_value(run_log_json):
+def update_div_current_reward_value(run_log_json):
+    """
+    Callback that updates the current reward value to be last reward value the agent got
+    :param run_log_json: JSON object of the data
+    :return: Paragraph with the value
+    """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
         return [
             html.P(
-                "Current Accuracy:",
+                "Current Reward:",
                 style={
                     'font-weight': 'bold',
                     'margin-top': '15px',
                     'margin-bottom': '0px'
                 }
             ),
-            html.Div(f"Training: {run_log_df['train accuracy'].iloc[-1]:.4f}"),
-            html.Div(f"Validation: {run_log_df['val accuracy'].iloc[-1]:.4f}")
+            html.Div(f"Reward: {run_log_df['Reward'].iloc[-1]}"),
         ]
 
 
-@app.callback(Output('div-current-cross-entropy-value', 'children'),
+@app.callback(Output('div-current-loss-value', 'children'),
               [Input('run-log-storage', 'children')])
-def update_div_current_cross_entropy_value(run_log_json):
+def update_div_current_loss_value(run_log_json):
+    """
+    Callback that updates the current loss value to be last loss value the agent got
+    :param run_log_json: JSON object of the data
+    :return: Paragraph with the value
+    """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
         return [
@@ -385,9 +343,26 @@ def update_div_current_cross_entropy_value(run_log_json):
                     'margin-bottom': '0px'
                 }
             ),
-            html.Div(f"Training: {run_log_df['train cross entropy'].iloc[-1]:.4f}"),
-            html.Div(f"Validation: {run_log_df['val cross entropy'].iloc[-1]:.4f}")
+            html.Div(f"Loss: {run_log_df['Loss'].iloc[-1]}"),
         ]
+
+
+@app.callback(Output('dropdown-interval-control', 'multi'),
+              [Input('dropdown-log-file', 'value')])
+def change_log_file(value):
+    """
+    Callback that updates the log file to graph based on the dropdown selection
+    :param value: Dropdown selection
+    :return: Return value with no meaning for the purpose of compilation
+    """
+    global LOGFILE
+    if(value is None):
+        LOGFILE = ''
+        return False
+    LOGFILE = value
+
+    return False
+
 
 # Running the server
 if __name__ == '__main__':

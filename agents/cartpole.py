@@ -158,9 +158,11 @@ class CartpoleAgent:
         """
         Function that simulates the game.
         """
-        log = open(self.log_file, 'w')
-        log.write('Batch,Reward,Loss')
-        scores = deque(maxlen=100)
+        if not self.prod:
+            log = open(self.log_file, 'w')
+            log.write('Batch,Reward,Loss')
+            log.close()
+            scores = deque(maxlen=100)
 
         for e in range(self.episodes):
             # Restart the cartpole
@@ -200,9 +202,9 @@ class CartpoleAgent:
                 if mean_score > 195.0:
                     print('Game is solved at Episode {}'.format(e))
                 # Log results to files
+                log = open(self.log_file, 'a')
                 log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
-
-        log.close()
+                log.close()
 
     def demo_run(self, render):
         """
