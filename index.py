@@ -7,7 +7,10 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 
-LOGFILE = 'agents/logs/env_CartPole-v0_gamma_0.97_episodes_50000_epsilon_decay_0.999_batch_size_64_lr_0.01_neurons_[16, 4]_activation_tanh.csv'
+from os import listdir
+
+LOGFILE = 'agents/logs/env_CartPole-v0_gamma_0.97_episodes_50000_epsilon_decay_0.995_batch_size_64_lr_0.01_neurons_' \
+          '[8]_activation_tanh.csv'
 
 app = dash.Dash(__name__)
 server = app.server
@@ -65,6 +68,20 @@ def div_graph(name):
     )
 
 
+def get_log_files():
+    """
+    Function that fetches all the files in the logs directory to display in the dropdown.
+    :return: list of file paths
+    """
+    options = []
+
+    for log in listdir('agents/logs/'):
+        new_log = {'label': log, 'value': '/'.join(('agents/logs', log))}
+        options.append(new_log)
+
+    return options
+
+
 # Content of the page
 app.layout = html.Div([
     # Banner display
@@ -83,6 +100,15 @@ app.layout = html.Div([
     # Body
     html.Div([
         html.Div([
+            dcc.Dropdown(
+                id='dropdown-log-file',
+                placeholder="Select log file",
+                options=get_log_files(),
+                clearable=True,
+                searchable=True,
+                multi=False,
+                ),
+
             dcc.Dropdown(
                 id='dropdown-interval-control',
                 options=[
@@ -154,7 +180,7 @@ def update_graph(graph_id, graph_title, col, run_log_json, checklist_smoothing_o
         # Create graph
         layout = go.Layout(
             title=graph_title,
-            margin=go.Margin(l=50, r=50, b=50, t=50),
+            margin=go.layout.Margin(l=50, r=50, b=50, t=50),
             yaxis={'title': graph_title}
         )
 
@@ -190,7 +216,7 @@ def update_graph(graph_id, graph_title, col, run_log_json, checklist_smoothing_o
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
     """
-    Select the interval time between updates for the graph.
+    Callback that changes the interval time between updates for the graph.
     :param interval_rate: user selection
     :return: interval rate
     """
@@ -212,7 +238,7 @@ def update_interval_log_update(interval_rate):
               [Input('interval-log-update', 'n_intervals')])
 def get_run_log(_):
     """
-    Function that gets the json file.
+    Callback that gets the csv file.
     :param _: holder value to trigger callback
     :return: data in json format
     """
@@ -232,7 +258,7 @@ def get_run_log(_):
               [Input('run-log-storage', 'children')])
 def update_div_step_display(run_log_json):
     """
-    Function that gets the last element from the JSON data.
+    Callback that gets the last Batch number from the JSON data.
     :param run_log_json: JSON log data
     :return: last row of the JSON log data
     """
@@ -246,6 +272,13 @@ def update_div_step_display(run_log_json):
                Input('checklist-smoothing-options-reward', 'value'),
                Input('slider-smoothing-reward', 'value')])
 def update_reward_graph(run_log_json, checklist_smoothing_options, slider_smoothing):
+    """
+    Callback that updates the reward graph
+    :param run_log_json: JSON object of the data
+    :param checklist_smoothing_options: Boolean to smooth the function
+    :param slider_smoothing: Weight of the smoothing function
+    :return: Graph
+    """
     graph = update_graph('accuracy-graph', 'Reward', 'Reward', run_log_json,
                          checklist_smoothing_options, slider_smoothing)
     return [graph]
@@ -256,6 +289,13 @@ def update_reward_graph(run_log_json, checklist_smoothing_options, slider_smooth
                Input('checklist-smoothing-options-loss', 'value'),
                Input('slider-smoothing-loss', 'value')])
 def update_loss_graph(run_log_json, checklist_smoothing_options, slider_smoothing):
+    """
+    Callback that updates the loss graph
+    :param run_log_json: JSON object of the data
+    :param checklist_smoothing_options: Boolean to smooth the function
+    :param slider_smoothing: Weight of the smoothing function
+    :return: Graph
+    """
     graph = update_graph('cross-loss-graph', 'Loss', 'Loss',
                          run_log_json, checklist_smoothing_options, slider_smoothing)
     return [graph]
@@ -264,6 +304,11 @@ def update_loss_graph(run_log_json, checklist_smoothing_options, slider_smoothin
 @app.callback(Output('div-current-reward-value', 'children'),
               [Input('run-log-storage', 'children')])
 def update_div_current_reward_value(run_log_json):
+    """
+    Callback that updates the current reward value to be last reward value the agent got
+    :param run_log_json: JSON object of the data
+    :return: Paragraph with the value
+    """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
         return [
@@ -282,6 +327,11 @@ def update_div_current_reward_value(run_log_json):
 @app.callback(Output('div-current-loss-value', 'children'),
               [Input('run-log-storage', 'children')])
 def update_div_current_loss_value(run_log_json):
+    """
+    Callback that updates the current loss value to be last loss value the agent got
+    :param run_log_json: JSON object of the data
+    :return: Paragraph with the value
+    """
     if run_log_json:
         run_log_df = pd.read_json(run_log_json, orient='split')
         return [
@@ -295,6 +345,23 @@ def update_div_current_loss_value(run_log_json):
             ),
             html.Div(f"Loss: {run_log_df['Loss'].iloc[-1]}"),
         ]
+
+
+@app.callback(Output('dropdown-interval-control', 'multi'),
+              [Input('dropdown-log-file', 'value')])
+def change_log_file(value):
+    """
+    Callback that updates the log file to graph based on the dropdown selection
+    :param value: Dropdown selection
+    :return: Return value with no meaning for the purpose of compilation
+    """
+    global LOGFILE
+    if(value is None):
+        LOGFILE = ''
+        return False
+    LOGFILE = value
+
+    return False
 
 
 # Running the server
