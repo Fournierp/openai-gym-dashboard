@@ -2,7 +2,7 @@
 
 ## Introduction
 
-OpenAI Gym Dashboard is a web app designed with Plotly's Dashboard Tool. This lightweight interface is a great tool to visualize the training of your Reinforcement Learning or Artificial Intelligent Agent. 
+OpenAI Gym Dashboard is a web app designed with Plotly's Dashboard Tool. This lightweight interface is a great tool to visualize the performance of your Reinforcement Learning or Artificial Intelligent Agent while it is training or compare multiple trained Agents. 
 
 ## Installation
 
@@ -19,14 +19,25 @@ pip install -r requirements.txt
 ```
 
 ## Usage Example
+To launch the Dash web app, run the following command-line:
 ```
 python index.py
+```
+
+To start the training of the agent:
+```
+python agents/cartpole.py
+```
+
+To start the training of multiple agents with grid search, change the **hyperparameters.json** file and run:
+```
+python agents/train.py
 ```
 
 ## Release history
 
 * 1.0
-    * 
+    * Live model visualizations
 
 ## Built With
 

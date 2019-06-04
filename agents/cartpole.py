@@ -4,13 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from collections import deque
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Dense, Dropout, Input, LSTM
+from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 
-
 class CartpoleAgent:
-    def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.99, memory=100000, prod=False, neurons=[16, 8], batch_size=64, lr=0.01,
+    def __init__(self, render=False, episodes=50000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
+                 epsilon_decay=0.995, memory=100000, prod=False, neurons=[8], batch_size=64, lr=0.01,
                  activation="tanh", log_file="", model_name="", plot_file=""):
         """
         Initialise the agent with user input.
@@ -46,7 +45,7 @@ class CartpoleAgent:
         self.lr = lr
         self.neurons = neurons
         self.activation = activation
-        self.model = self.build_model() if model_name == '' else load_model(model_name)
+        self.model = self.build_model() if model_name == '' else load_model(model_name + '.h5')
         self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
                         str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
                         str(neurons) + '_activation_' + str(activation) + '.csv' if log_file == '' else log_file
@@ -246,7 +245,7 @@ class CartpoleAgent:
         with open(self.model_file + ".json", "w") as json_file:
             json_file.write(model_json)
         # Serialize weights to HDF5
-        self.model.save_weights(self.model_file + ".h5")
+        self.model.save(self.model_file + ".h5")
 
     def plot_model(self):
         """
