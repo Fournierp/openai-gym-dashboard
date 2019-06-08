@@ -7,10 +7,11 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 
+
 class CartpoleAgent:
     def __init__(self, render=False, episodes=50000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.995, memory=100000, prod=False, neurons=[8], batch_size=64, lr=0.01,
-                 activation="tanh", log_file="", model_name="", plot_file=""):
+                 epsilon_decay=0.995, prod=False, neurons=[8], batch_size=16, lr=0.01, activation="tanh", log_file="",
+                 model_name="", plot_file=""):
         """
         Initialise the agent with user input.
 
@@ -21,12 +22,11 @@ class CartpoleAgent:
         :param epsilon: Value of randomness of the epsilon-greedy decision making.
         :param epsilon_min: Minimum epsilon value.
         :param epsilon_decay: Rate of decay of epsilon.
-        :param memory: Number of frames the agent remembers.
         :param prod: Boolean for training or testing mode.
         :param neurons: Architecture of the DQN.
-        :param batch_size: Number of frames fed to the DQN at once.
-        :param activation: Activation function.
+        :param batch_size: Number of episodes until the DQN learns.
         :param lr: Learning Rate
+        :param activation: Activation function.
         :param log_file: Name of the file the logs will be saved.
         :param model_name: Name the model will be saved to.
         :param plot_file: Name of the file the plot of the reward is saved to.
@@ -39,7 +39,8 @@ class CartpoleAgent:
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
-        self.memory = deque(maxlen=memory)
+        # The memory size is equal to the maximum number of frames to learn from.
+        self.memory = deque(maxlen=batch_size*frames)
         self.prod = prod
         self.batch_size = batch_size
         self.lr = lr
@@ -48,16 +49,18 @@ class CartpoleAgent:
         self.model = self.build_model() if model_name == '' else load_model(model_name + '.h5')
         self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
                         str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
-                        str(neurons) + '_activation_' + str(activation) + '.csv' if log_file == '' else log_file
+                        str(neurons) + '_activation_' + str(activation) + '.csv' \
+            if log_file == '' else log_file
         self.model_file = 'models/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
                           '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
-                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) if model_name == '' else model_name
+                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) \
+            if model_name == '' else model_name
         self.plot_file = 'plots/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
                          '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) + '.png' \
             if plot_file == '' else plot_file
 
-    def reset(self, epsilon=1.0, memory=100000):
+    def reset(self, epsilon=1.0):
         """
         Reset the attributes that change during play.
 
@@ -67,7 +70,7 @@ class CartpoleAgent:
         """
         self.env = self.env.reset()
         self.epsilon = epsilon
-        self.memory = deque(maxlen=memory)
+        self.memory.clear()
         self.model = self.build_model()
 
     def build_model(self):
@@ -133,8 +136,8 @@ class CartpoleAgent:
         :return: Mean Squared Error of the batch.
         """
         x, y = [], []
-        minibatch = self.generate_batch()
-        for state, action, reward, next_state, done in minibatch:
+        # minibatch = self.generate_batch()
+        for state, action, reward, next_state, done in self.memory:
             # Get the model prediction for the given state
             state = np.reshape(state, (1, 1, 4))
             y_target = self.model.predict([state])
@@ -147,9 +150,11 @@ class CartpoleAgent:
             y.append(y_target[0])
 
         # Give the model the data
-        hist = self.model.fit(np.array(x), np.array(y), verbose=0)
+        hist = self.model.fit(np.array(x), np.array(y), batch_size=64, verbose=0)
         # Reduce the randomness of the decision making
         self.decay()
+        # Clear memory
+        self.memory.clear()
 
         return hist.history["loss"][0]
 
@@ -161,7 +166,7 @@ class CartpoleAgent:
             log = open(self.log_file, 'w')
             log.write('Batch,Reward,Loss')
             log.close()
-            scores = deque(maxlen=100)
+            scores = deque(maxlen=self.batch_size)
 
         for e in range(self.episodes):
             # Restart the cartpole
@@ -188,22 +193,23 @@ class CartpoleAgent:
                 if done:
                     break
 
-            # Record the track run
-            scores.append(i)
-            mean_score = np.mean(scores)
+            if not self.prod:
+                # Record the track run
+                scores.append(i)
+                mean_score = np.mean(scores)
 
-            if not (e+1) % self.batch_size and not self.prod:
-                # Feed a batch into the DQN
-                loss = self.learn()
-                # Log results to console
-                print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
-                      format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
-                if mean_score > 195.0:
-                    print('Game is solved at Episode {}'.format(e))
-                # Log results to files
-                log = open(self.log_file, 'a')
-                log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
-                log.close()
+                if not (e+1) % self.batch_size:
+                    # Feed a batch into the DQN
+                    loss = self.learn()
+                    # Log results to console
+                    print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
+                          format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
+                    if mean_score > 195.0:
+                        print('Game is solved at Episode {}'.format(e))
+                    # Log results to files
+                    log = open(self.log_file, 'a')
+                    log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
+                    log.close()
 
     def demo_run(self, render):
         """
@@ -260,7 +266,7 @@ class CartpoleAgent:
 
 
 if __name__ == '__main__':
-    agent = CartpoleAgent(episodes=100000, epsilon_decay=0.99)
+    agent = CartpoleAgent(episodes=10000)
     agent.demo_run(render=False)
     agent.play()
     agent.demo_run(render=True)
