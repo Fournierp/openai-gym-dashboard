@@ -4,13 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from collections import deque
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Dense, Dropout, Input, LSTM
+from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 
-
 class CartpoleAgent:
-    def __init__(self, render=False, episodes=10000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.99, memory=100000, prod=False, neurons=[16, 8], batch_size=64, lr=0.01,
+    def __init__(self, render=False, episodes=50000, frames=200, gamma=0.97, epsilon=1.0, epsilon_min=0.01,
+                 epsilon_decay=0.995, memory=100000, prod=False, neurons=[8], batch_size=64, lr=0.01,
                  activation="tanh", log_file="", model_name="", plot_file=""):
         """
         Initialise the agent with user input.
@@ -46,13 +45,14 @@ class CartpoleAgent:
         self.lr = lr
         self.neurons = neurons
         self.activation = activation
-        self.model = self.build_model() if model_name == '' else load_model(model_name)
+        self.model = self.build_model() if model_name == '' else load_model(model_name + '.h5')
         self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
                         str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
                         str(neurons) + '_activation_' + str(activation) + '.csv' if log_file == '' else log_file
         self.model_file = 'models/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
                           '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
-                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) if model_name == '' else model_name
+                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) \
+            if model_name == '' else model_name
         self.plot_file = 'plots/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) +\
                          '_epsilon_decay_' + str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr)\
                          + '_neurons_' + str(neurons) + '_activation_' + str(activation) + '.png' \
@@ -162,7 +162,7 @@ class CartpoleAgent:
             log = open(self.log_file, 'w')
             log.write('Batch,Reward,Loss')
             log.close()
-            scores = deque(maxlen=100)
+            scores = deque(maxlen=self.batch_size)
 
         for e in range(self.episodes):
             # Restart the cartpole
@@ -190,21 +190,22 @@ class CartpoleAgent:
                     break
 
             # Record the track run
-            scores.append(i)
-            mean_score = np.mean(scores)
+            if not self.prod:
+                scores.append(i)
+                mean_score = np.mean(scores)
 
-            if not (e+1) % self.batch_size and not self.prod:
-                # Feed a batch into the DQN
-                loss = self.learn()
-                # Log results to console
-                print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
-                      format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
-                if mean_score > 195.0:
-                    print('Game is solved at Episode {}'.format(e))
-                # Log results to files
-                log = open(self.log_file, 'a')
-                log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
-                log.close()
+                if not (e+1) % self.batch_size :
+                    # Feed a batch into the DQN
+                    loss = self.learn()
+                    # Log results to console
+                    print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
+                          format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
+                    if mean_score > 195.0:
+                        print('Game is solved at Episode {}'.format(e))
+                    # Log results to files
+                    log = open(self.log_file, 'a')
+                    log.write("\n" + str((e+1)/self.batch_size) + ',' + str(i) + ',' + str(loss))
+                    log.close()
 
     def demo_run(self, render):
         """
@@ -246,7 +247,7 @@ class CartpoleAgent:
         with open(self.model_file + ".json", "w") as json_file:
             json_file.write(model_json)
         # Serialize weights to HDF5
-        self.model.save_weights(self.model_file + ".h5")
+        self.model.save(self.model_file + ".h5")
 
     def plot_model(self):
         """
