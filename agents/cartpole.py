@@ -116,19 +116,6 @@ class CartpoleAgent:
 
         return np.argmax(options[0])
 
-    def generate_batch(self):
-        """
-        Function that gets the last (batch_size) elements in memory for training.
-
-        :return: Shuffled batch
-        """
-        batch = []
-        length = len(self.memory)
-        for i in range(length - self.batch_size + 1, length):
-            batch.append(self.memory[i])
-        # Shuffle the data to avoid the order influencing the training
-        return np.random.permutation(batch)
-
     def learn(self):
         """
         Function that trains the model given a batch of data.
@@ -136,7 +123,6 @@ class CartpoleAgent:
         :return: Mean Squared Error of the batch.
         """
         x, y = [], []
-        # minibatch = self.generate_batch()
         for state, action, reward, next_state, done in self.memory:
             # Get the model prediction for the given state
             state = np.reshape(state, (1, 1, 4))
@@ -202,8 +188,8 @@ class CartpoleAgent:
                     # Feed a batch into the DQN
                     loss = self.learn()
                     # Log results to console
-                    print('Batch {} - Survival time over last {} episodes was {} frames. -- {}'.
-                          format((e+1)/self.batch_size, self.batch_size, mean_score, loss))
+                    print('Batch {} - Survival time over last {} episodes was {:0.1f} frames. -- {:0.2f}'.
+                          format(int((e+1)/self.batch_size), self.batch_size, mean_score, loss))
                     if mean_score > 195.0:
                         print('Game is solved at Episode {}'.format(e))
                     # Log results to files
