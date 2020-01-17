@@ -21,14 +21,16 @@ pip install -r requirements.txt
 ```
 
 ## Usage Example
-To launch the Dash web app, run the following command-line:
-```
-python index.py
-```
+Start the Reinforcement Learning Agent's training before running compiling the web-app for live vizualisations.
 
 To start the training of the agent:
 ```
 python agents/cartpole.py
+```
+
+To launch the Dash web app, run the following command-line:
+```
+python index.py
 ```
 
 To start the training of multiple agents with grid search, change the **hyperparameters.json** file and run:
@@ -39,6 +41,8 @@ python agents/train.py
 ## Release history
 
 * 1.0
+    * Trained model visualizations
+* 2.0
     * Live model visualizations
 
 ## Built With
