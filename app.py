@@ -9,3 +9,4 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',
 server = flask.Flask("OpenAI Gym Dashboard")
 app = dash.Dash("OpenAI Gym Dashboard", server=server, external_stylesheets=external_stylesheets)
 app.config.suppress_callback_exceptions = True
+pp.config['suppress_callback_exceptions']=True

@@ -1,3 +1,4 @@
+import shutil
 import gym
 import numpy as np
 import pandas as pd
@@ -46,7 +47,7 @@ class CartpoleAgent:
         self.neurons = neurons
         self.activation = activation
         self.model = self.build_model() if model_name == '' else load_model(model_name + '.h5')
-        self.log_file = 'logs/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
+        self.log_file = 'logs/live/env_CartPole-v0_gamma_' + str(gamma) + '_episodes_' + str(episodes) + "_epsilon_decay_" +\
                         str(epsilon_decay) + '_batch_size_' + str(batch_size) + '_lr_' + str(lr) + '_neurons_' +\
                         str(neurons) + '_activation_' + str(activation) + '.csv' \
             if log_file == '' else log_file
@@ -242,7 +243,7 @@ class CartpoleAgent:
         """
         Plot the reward per episode.
         """
-        df = pd.read_csv(self.log_file)
+        df = pd.read_csv("logs/completed" + agent.log_file[9:])
         fig, ax = plt.subplots()
         ax.plot(df.Batch, df.Reward)
         ax.set(xlabel='Batch', ylabel='Reward', title=self.log_file[:-4])
@@ -254,6 +255,8 @@ if __name__ == '__main__':
     agent = CartpoleAgent(episodes=10000)
     agent.demo_run(render=False)
     agent.play()
+	# When training is done, move the log file to the folder for complete training
+    shutil.move(agent.log_file, "logs/completed" + agent.log_file[9:])
     agent.demo_run(render=True)
     agent.save_model()
     agent.plot_model()

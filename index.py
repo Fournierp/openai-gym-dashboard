@@ -9,8 +9,8 @@ import numpy as np
 
 from os import listdir
 
-LOGFILE = 'agents/logs/env_CartPole-v0_gamma_0.97_episodes_50000_epsilon_decay_0.995_batch_size_64_lr_0.01_neurons_' \
-          '[8]_activation_tanh.csv'
+# Global variables for web-app functions
+LOGFILE = ''
 
 app = dash.Dash(__name__)
 server = app.server
@@ -67,17 +67,23 @@ def div_graph(name):
         className="row"
     )
 
-
-def get_log_files():
+def get_log_files(type):
     """
     Function that fetches all the files in the logs directory to display in the dropdown.
     :return: list of file paths
     """
     options = []
 
-    for log in listdir('agents/logs/'):
-        new_log = {'label': log, 'value': '/'.join(('agents/logs', log))}
-        options.append(new_log)
+    if( type == "live" ):
+        # Get logs of models being trained live
+        for log in listdir('agents/logs/live'):
+            new_log = {'label': log, 'value': '/'.join(('agents/logs/live', log))}
+            options.append(new_log)
+    else:
+        # Get logs of models already trained
+        for log in listdir('agents/logs/completed'):
+            new_log = {'label': log, 'value': '/'.join(('agents/logs/completed', log))}
+            options.append(new_log)
 
     return options
 
@@ -100,11 +106,32 @@ app.layout = html.Div([
     # Body
     html.Div([
         html.Div([
+            html.P(id='placeholder'),
+            dcc.RadioItems(
+                id='radio-type',
+                options=[
+                    {'label': 'Live', 'value': 'live'},
+                    {'label': 'Completed training', 'value': 'done'}
+                ],
+                value='live'
+            ),
+
             dcc.Dropdown(
-                id='dropdown-log-file',
-                placeholder="Select log file",
-                options=get_log_files(),
+                id='dropdown-live-file',
+                placeholder="Select live log file",
+                options=get_log_files("live"),
                 clearable=True,
+                disabled=False,
+                searchable=True,
+                multi=False,
+                ),
+
+            dcc.Dropdown(
+                id='dropdown-done-file',
+                placeholder="Select complete log file",
+                options=get_log_files("done"),
+                clearable=True,
+                disabled=True,
                 searchable=True,
                 multi=False,
                 ),
@@ -348,21 +375,54 @@ def update_div_current_loss_value(run_log_json):
 
 
 @app.callback(Output('dropdown-interval-control', 'multi'),
-              [Input('dropdown-log-file', 'value')])
-def change_log_file(value):
+              [Input('dropdown-done-file', 'value'),
+              Input('dropdown-live-file', 'value'),
+              Input('radio-type', 'value')])
+def change_log_file(value_done, value_live, value_type):
     """
     Callback that updates the log file to graph based on the dropdown selection
     :param value: Dropdown selection
     :return: Return value with no meaning for the purpose of compilation
     """
     global LOGFILE
-    if(value is None):
+    if(value_type == "live" and value_live is not None):
+        LOGFILE = value_live
+    elif(value_type == "done" and value_done is not None):
+        LOGFILE = value_done
+    else:
         LOGFILE = ''
         return False
-    LOGFILE = value
 
-    return False
+@app.callback(Output('dropdown-live-file', 'disabled'),
+              [Input('radio-type', 'value')])
+def select_log_live(value):
+    """
+    Callback that disables dropdown menues based on the radio button selection
+    :param value: Radio button selection
+    :return: boolean
+    """
+    global LOGFILE
+    if (value == "live"):
+        return False
+    else:
+        LOGFILE = ''
+        return True
 
+
+@app.callback(Output('dropdown-done-file', 'disabled'),
+              [Input('radio-type', 'value')])
+def select_log_done(value):
+    """
+    Callback that disables dropdown menues based on the radio button selection
+    :param value: Radio button selection
+    :return: boolean
+    """
+    global LOGFILE
+    if (value == "done"):
+        return False
+    else:
+        LOGFILE = ''
+        return True
 
 # Running the server
 if __name__ == '__main__':
